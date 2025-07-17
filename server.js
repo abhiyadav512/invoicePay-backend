@@ -3,7 +3,7 @@ const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const app = express();
 const errorHandler = require("./middleware/errorHandler");
-const primsa=require('./config/db');
+const prisma = require("./config/db");
 
 require("dotenv").config();
 

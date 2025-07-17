@@ -5,6 +5,7 @@ const sendEmail = require("../helper/sendEmail");
 const sendResponse = require("../helper/sendResponse");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 
 const loginUser = async (req, res, next) => {
   const { email, password } = req.body;
@@ -34,7 +35,7 @@ const loginUser = async (req, res, next) => {
       process.env.JWT_SECRET,
       {
         expiresIn: "30d",
-      }
+      },
     );
 
     res.cookie("token", token, {
@@ -61,7 +62,7 @@ const registerUser = async (req, res, next) => {
   try {
     const existingUser = await prisma.user.findUnique({ where: { email } });
 
-    const dobDate = new Date(dob); 
+    const dobDate = new Date(dob);
 
     // case 1 : Email exists AND verified
     if (existingUser && existingUser.isVerified) {
@@ -69,7 +70,7 @@ const registerUser = async (req, res, next) => {
         res,
         409,
         false,
-        "This email is already registered and verified."
+        "This email is already registered and verified.",
       );
     }
 
@@ -77,17 +78,20 @@ const registerUser = async (req, res, next) => {
     const hashOtp = await bcrypt.hash(otp, 10);
     const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     // case 2 : Email exists but not verified - resend otp
     if (existingUser && !existingUser.isVerified) {
+      const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
       if (
         existingUser.otpExpiresAt &&
-        existingUser.otpExpiresAt > new Date(Date.now() - 60 * 1000)
+        existingUser.otpExpiresAt > oneMinuteAgo
       ) {
         return sendResponse(
           res,
           429,
           false,
-          "Please wait at least 60 seconds before requesting a new OTP."
+          "Please wait at least 60 seconds before requesting a new OTP.",
         );
       }
 
@@ -95,7 +99,7 @@ const registerUser = async (req, res, next) => {
         where: { email },
         data: {
           name,
-          password: await bcrypt.hash(password, 10),
+          password: hashedPassword,
           dob: dobDate,
           location,
           number,
@@ -114,7 +118,7 @@ const registerUser = async (req, res, next) => {
         200,
         true,
         "Unverified user found. OTP has been resent.",
-        { email: updateUser.email }
+        { email: updateUser.email },
       );
     }
 
@@ -123,7 +127,7 @@ const registerUser = async (req, res, next) => {
       data: {
         name,
         email,
-        password: await bcrypt.hash(password, 10),
+        password: hashedPassword,
         dob: dobDate,
         location,
         number,
@@ -144,7 +148,7 @@ const registerUser = async (req, res, next) => {
       200,
       true,
       "User registered successfully. OTP sent to email.",
-      { email: newUser.email }
+      { email: newUser.email },
     );
   } catch (error) {
     console.error(error);
@@ -152,7 +156,7 @@ const registerUser = async (req, res, next) => {
   }
 };
 
-const verifiyOtp = async (req, res, next) => {
+const verifyOtp = async (req, res, next) => {
   const { email, otp } = req.body;
   try {
     const user = await prisma.user.findUnique({ where: { email } });
@@ -166,7 +170,7 @@ const verifiyOtp = async (req, res, next) => {
         res,
         400,
         false,
-        "OTP not requested or already verified."
+        "OTP not requested or already verified.",
       );
     }
 
@@ -198,4 +202,110 @@ const verifiyOtp = async (req, res, next) => {
     next(error);
   }
 };
-module.exports = { loginUser, registerUser, verifiyOtp };
+
+const forgotPassword = async (req, res, next) => {
+  const { email } = req.body;
+  try {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user || !user.isVerified) {
+      return sendResponse(res, 400, false, "User not found or not verified");
+    }
+
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const hashToken = crypto
+      .createHash("sha256")
+      .update(rawToken)
+      .digest("hex");
+
+    const tokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await prisma.user.update({
+      where: { email },
+      data: {
+        resetToken: hashToken,
+        resetTokenExpires: tokenExpiry,
+      },
+    });
+
+    // todo : replace with production url
+    const resetLink = `https://yourdomain.com/reset-password/${rawToken}`;
+
+    await sendEmail({
+      to: email,
+      subject: "Password Reset Request",
+      html: `
+      <p>Hello ${user.name},</p>
+        <p>You requested a password reset. Click the link below to reset your password:</p>
+        <a href="${resetLink}">${resetLink}</a>
+        <p>This link will expire in 1 hour.</p>
+      `,
+    });
+
+    return sendResponse(
+      res,
+      200,
+      true,
+      "Password reset link sent to your email.",
+    );
+  } catch (error) {
+    console.log(error);
+    next(error);
+  }
+};
+
+const resetPassword = async (req, res, next) => {
+  const { token } = req.params;
+  const { newPassword } = req.body;
+  if (!token || !newPassword) {
+    return sendResponse(
+      res,
+      400,
+      false,
+      "Token and new password are required.",
+    );
+  }
+  try {
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+    const user = await prisma.user.findFirst({
+      where: {
+        resetToken: hashedToken,
+        resetTokenExpires: {
+          gte: new Date(),
+        },
+      },
+    });
+
+    if (!user) {
+      return sendResponse(res, 400, false, "Invalid or expired reset token.");
+    }
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        resetToken: null,
+        resetTokenExpires: null,
+      },
+    });
+
+    return sendResponse(
+      res,
+      200,
+      true,
+      "Password has been reset successfully.",
+    );
+  } catch (error) {
+    console.log(error);
+    next(error);
+  }
+};
+
+module.exports = {
+  loginUser,
+  registerUser,
+  verifyOtp,
+  forgotPassword,
+  resetPassword,
+};

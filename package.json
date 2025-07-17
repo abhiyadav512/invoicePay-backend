@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "server": "nodemon server.js"
+    "server": "nodemon server.js",
+    "format": "prettier --write ."
   },
   "author": "abhishek",
   "license": "ISC",
@@ -14,6 +15,7 @@
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
+    "crypto": "^1.0.1",
     "dotenv": "^17.2.0",
     "express": "^5.1.0",
     "express-rate-limit": "^8.0.1",
@@ -22,5 +24,8 @@
     "nodemon": "^3.1.10",
     "prisma": "^6.12.0",
     "zod": "^4.0.5"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2"
   }
 }
