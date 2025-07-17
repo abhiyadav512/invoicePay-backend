@@ -1,0 +1,66 @@
+// This is your Prisma schema file,
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String    @id @default(uuid())
+  name              String
+  email             String    @unique
+  password          String
+  dob               DateTime?
+  location          String?
+  number            String?
+  isVerified        Boolean   @default(false)
+  otpHash           String?
+  otpExpiresAt      DateTime?
+  resetToken        String?
+  resetTokenExpires DateTime?
+  invoices          Invoice[]
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([email])
+  @@index([isVerified])
+  @@index([email, isVerified]) // Composite index for faster filtering
+}
+
+model Invoice {
+  id     Int    @id @default(autoincrement())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  clientName  String
+  clientEmail String
+  currency    String        @default("INR")
+  total       Int
+  status      InvoiceStatus @default(UNPAID)
+  dueDate     DateTime
+  paymentLink String
+  pdfUrl      String?
+  items       InvoiceItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model InvoiceItem {
+  id          Int     @id @default(autoincrement())
+  invoice     Invoice @relation(fields: [invoiceId], references: [id])
+  invoiceId   Int
+  description String
+  amount      Int
+}
+
+enum InvoiceStatus {
+  UNPAID
+  PAID
+  OVERDUE
+}
