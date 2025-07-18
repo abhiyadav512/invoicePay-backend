@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
+const prisma = require('../config/db');
 
-const requireAuth = (req, res, next) => {
+const requireAuth = async (req, res, next) => {
   const token = req.cookies.token;
 
   if (!token) {
@@ -9,7 +10,15 @@ const requireAuth = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
+    const user = await prisma.user.findUnique({ where: { id: decoded.id } });
+
+    if (!user) {
+      return res
+        .status(401)
+        .json({ success: false, message: 'User not found' });
+    }
+
+    req.user = user;
     next();
   } catch (err) {
     return res.status(401).json({ success: false, message: 'Invalid token' });

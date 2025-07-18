@@ -1,0 +1,139 @@
+const prisma = require('../config/db');
+const {
+  generateStripePaymentLink
+} = require('../services/generateStripePaymentLink');
+const { sendInvoiceEmail } = require('../services/sendInvoiceEmail');
+const sendResponse = require('../helper/sendResponse');
+const Stripe = require('stripe');
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+
+exports.createInvoice = async (req, res, next) => {
+  const { clientName, clientEmail, currency, dueDate, items } = req.body;
+
+  if (!items || items.length === 0) {
+    return sendResponse(
+      res,
+      400,
+      false,
+      'Invoice must have at least one item.'
+    );
+  }
+
+  try {
+    const total = items.reduce((sum, item) => sum + item.amount, 0);
+
+    // Create invoice WITHOUT paymentLink
+    const invoice = await prisma.invoice.create({
+      data: {
+        clientName,
+        clientEmail,
+        currency: currency || 'INR',
+        dueDate: new Date(dueDate),
+        total,
+        user: {
+          connect: { id: req.user.id }
+        },
+        items: {
+          create: items.map(({ description, amount }) => ({
+            description,
+            amount
+          }))
+        }
+      },
+      include: { items: true }
+    });
+
+    // Generate Stripe payment link
+    let paymentLink, paymentLinkId;
+
+    try {
+      const { url, id } = await generateStripePaymentLink({
+        amount: total,
+        email: clientEmail,
+        metadata: { invoiceId: invoice.id },
+        currency
+      });
+      paymentLink = url;
+      paymentLinkId = id;
+    } catch (err) {
+      // If payment link generation fails, delete the created invoice to avoid inconsistent state
+      await prisma.invoice.delete({ where: { id: invoice.id } });
+      return sendResponse(
+        res,
+        500,
+        false,
+        'Failed to generate payment link. Please try again later.'
+      );
+    }
+
+    // Update invoice with payment link
+    await prisma.invoice.update({
+      where: { id: invoice.id },
+      data: { paymentLink, paymentLinkId }
+    });
+
+    const updatedInvoice = await prisma.invoice.findUnique({
+      where: { id: invoice.id },
+      include: { items: true }
+    });
+
+    const senderUser = req.user;
+    // Send invoice email
+    await sendInvoiceEmail(
+      clientEmail,
+      clientName,
+      paymentLink,
+      updatedInvoice,
+      senderUser
+    );
+
+    // Respond with updated invoice (with paymentLink)
+    sendResponse(
+      res,
+      201,
+      true,
+      'Invoice created and email sent.',
+      updatedInvoice
+    );
+  } catch (error) {
+    // console.error(error);
+    next(error);
+  }
+};
+
+exports.deleteInvoice = async (req, res, next) => {
+  const { invoiceId } = req.params;
+  try {
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: Number(invoiceId) }
+    });
+    if (!invoice) {
+      return sendResponse(res, 404, false, 'Invoice not found');
+    }
+
+    if (invoice.status === 'PAID') {
+      return sendResponse(res, 400, false, 'Cannot delete a paid invoice');
+    }
+
+    if (invoice.paymentLinkId) {
+      try {
+        await stripe.paymentLinks.update(invoice.paymentLinkId, {
+          active: false
+        });
+      } catch (stripeError) {
+        next(stripeError.message);
+      }
+    }
+
+    await prisma.invoiceItem.deleteMany({
+      where: { invoiceId: Number(invoiceId) }
+    });
+
+    await prisma.invoice.delete({
+      where: { id: Number(invoiceId) }
+    });
+    return sendResponse(res, 200, true, 'Invoice and payment link deleted');
+  } catch (error) {
+    next(error);
+  }
+};

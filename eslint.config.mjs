@@ -5,6 +5,15 @@ import { defineConfig } from 'eslint/config';
 
 export default defineConfig([
   {
+    ignores: [
+      'dist/**',
+      'build/**',
+      'prisma/**',
+      'node_modules/** ',
+      ' generated/**'
+    ]
+  },
+  {
     files: ['**/*.{js,cjs,mjs}'],
     languageOptions: {
       ecmaVersion: 2021,

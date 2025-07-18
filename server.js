@@ -9,6 +9,7 @@ const helmet = require('helmet');
 require('dotenv').config();
 
 const authRoutes = require('./routes/authRoutes');
+const invoiceRoutes = require('./routes/invoiceRoutes');
 
 app.use(helmet());
 app.use(cors());
@@ -16,6 +17,7 @@ app.use(express.json());
 app.use(cookieParser());
 
 app.use('/api/user/auth', authRoutes);
+app.use('/api/invoice/', invoiceRoutes);
 
 app.use(errorHandler);
 

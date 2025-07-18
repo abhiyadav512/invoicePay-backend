@@ -43,10 +43,10 @@ model Invoice {
   total       Int
   status      InvoiceStatus @default(UNPAID)
   dueDate     DateTime
-  paymentLink String
+  paymentLink String?
+  paymentLinkId   String?      
   pdfUrl      String?
   items       InvoiceItem[]
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
