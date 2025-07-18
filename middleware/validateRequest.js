@@ -3,11 +3,11 @@ const validateRequest = (schema) => (req, res, next) => {
     req.body = schema.parse(req.body); // validated & parsed
     next();
   } catch (err) {
-    console.log("error form valid ", err);
+    // console.log('error form valid ', err);
     return res.status(400).json({
       success: false,
-      message: "Validation failed",
-      errors: err.errors,
+      message: 'Validation failed',
+      errors: err.errors
     });
   }
 };

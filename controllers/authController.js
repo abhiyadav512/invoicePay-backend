@@ -1,31 +1,31 @@
-const prisma = require("../config/db");
-require("dotenv").config();
-const generateOtpEmail = require("../helper/generateOtpEmail");
-const sendEmail = require("../helper/sendEmail");
-const sendResponse = require("../helper/sendResponse");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
-const crypto = require("crypto");
+const prisma = require('../config/db');
+require('dotenv').config();
+const generateOtpEmail = require('../helper/generateOtpEmail');
+const sendEmail = require('../helper/sendEmail');
+const sendResponse = require('../helper/sendResponse');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 
 const loginUser = async (req, res, next) => {
   const { email, password } = req.body;
   try {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
-      const err = new Error("Invalid email");
+      const err = new Error('Invalid email');
       err.status = 401;
       return next(err);
     }
 
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
-      const err = new Error("Invalid password.., try again.");
+      const err = new Error('Invalid password.., try again.');
       err.status = 401;
       return next(err);
     }
 
     if (!user.isVerified) {
-      const err = new Error("Please verify your email before logging in.");
+      const err = new Error('Please verify your email before logging in.');
       err.status = 403;
       return next(err);
     }
@@ -34,25 +34,25 @@ const loginUser = async (req, res, next) => {
       { id: user.id, email: user.email },
       process.env.JWT_SECRET,
       {
-        expiresIn: "30d",
-      },
+        expiresIn: '30d'
+      }
     );
 
-    res.cookie("token", token, {
+    res.cookie('token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "Strict",
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'Strict',
+      maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
     });
-    return sendResponse(res, 200, true, "Login successful", {
+    return sendResponse(res, 200, true, 'Login successful', {
       user: {
         id: user.id,
         name: user.name,
-        email: user.email,
-      },
+        email: user.email
+      }
     });
   } catch (error) {
-    console.error(error);
+    // console.error(error);
     next(error);
   }
 };
@@ -70,7 +70,7 @@ const registerUser = async (req, res, next) => {
         res,
         409,
         false,
-        "This email is already registered and verified.",
+        'This email is already registered and verified.'
       );
     }
 
@@ -91,7 +91,7 @@ const registerUser = async (req, res, next) => {
           res,
           429,
           false,
-          "Please wait at least 60 seconds before requesting a new OTP.",
+          'Please wait at least 60 seconds before requesting a new OTP.'
         );
       }
 
@@ -104,21 +104,21 @@ const registerUser = async (req, res, next) => {
           location,
           number,
           otpHash: hashOtp,
-          otpExpiresAt,
-        },
+          otpExpiresAt
+        }
       });
       await sendEmail({
         to: email,
-        subject: "Your new OTP code.",
-        html: generateOtpEmail(name, otp),
+        subject: 'Your new OTP code.',
+        html: generateOtpEmail(name, otp)
       });
 
       return sendResponse(
         res,
         200,
         true,
-        "Unverified user found. OTP has been resent.",
-        { email: updateUser.email },
+        'Unverified user found. OTP has been resent.',
+        { email: updateUser.email }
       );
     }
 
@@ -133,25 +133,25 @@ const registerUser = async (req, res, next) => {
         number,
         isVerified: false,
         otpHash: hashOtp,
-        otpExpiresAt,
-      },
+        otpExpiresAt
+      }
     });
 
     await sendEmail({
       to: email,
-      subject: "Your OTP Code",
-      html: generateOtpEmail(name, otp),
+      subject: 'Your OTP Code',
+      html: generateOtpEmail(name, otp)
     });
 
     return sendResponse(
       res,
       200,
       true,
-      "User registered successfully. OTP sent to email.",
-      { email: newUser.email },
+      'User registered successfully. OTP sent to email.',
+      { email: newUser.email }
     );
   } catch (error) {
-    console.error(error);
+    // console.error(error);
     next(error);
   }
 };
@@ -162,7 +162,7 @@ const verifyOtp = async (req, res, next) => {
     const user = await prisma.user.findUnique({ where: { email } });
 
     if (!user) {
-      return sendResponse(res, 404, false, "User not found");
+      return sendResponse(res, 404, false, 'User not found');
     }
 
     if (!user.otpHash || !user.otpExpiresAt) {
@@ -170,19 +170,19 @@ const verifyOtp = async (req, res, next) => {
         res,
         400,
         false,
-        "OTP not requested or already verified.",
+        'OTP not requested or already verified.'
       );
     }
 
     if (new Date() > user.otpExpiresAt) {
-      const err = new Error("OTP has expired.");
+      const err = new Error('OTP has expired.');
       err.status = 400;
       return next(err);
     }
 
     const isValid = await bcrypt.compare(otp, user.otpHash);
     if (!isValid) {
-      const err = new Error("Invalid OTP.");
+      const err = new Error('Invalid OTP.');
       err.status = 400;
       return next(err);
     }
@@ -192,13 +192,13 @@ const verifyOtp = async (req, res, next) => {
       data: {
         isVerified: true,
         otpHash: null,
-        otpExpiresAt: null,
-      },
+        otpExpiresAt: null
+      }
     });
 
-    return sendResponse(res, 200, true, "Email verified successfully.");
+    return sendResponse(res, 200, true, 'Email verified successfully.');
   } catch (error) {
-    console.log(error);
+    // console.log(error);
     next(error);
   }
 };
@@ -208,14 +208,14 @@ const forgotPassword = async (req, res, next) => {
   try {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user || !user.isVerified) {
-      return sendResponse(res, 400, false, "User not found or not verified");
+      return sendResponse(res, 400, false, 'User not found or not verified');
     }
 
-    const rawToken = crypto.randomBytes(32).toString("hex");
+    const rawToken = crypto.randomBytes(32).toString('hex');
     const hashToken = crypto
-      .createHash("sha256")
+      .createHash('sha256')
       .update(rawToken)
-      .digest("hex");
+      .digest('hex');
 
     const tokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
@@ -223,8 +223,8 @@ const forgotPassword = async (req, res, next) => {
       where: { email },
       data: {
         resetToken: hashToken,
-        resetTokenExpires: tokenExpiry,
-      },
+        resetTokenExpires: tokenExpiry
+      }
     });
 
     // todo : replace with production url
@@ -232,23 +232,23 @@ const forgotPassword = async (req, res, next) => {
 
     await sendEmail({
       to: email,
-      subject: "Password Reset Request",
+      subject: 'Password Reset Request',
       html: `
       <p>Hello ${user.name},</p>
         <p>You requested a password reset. Click the link below to reset your password:</p>
         <a href="${resetLink}">${resetLink}</a>
         <p>This link will expire in 1 hour.</p>
-      `,
+      `
     });
 
     return sendResponse(
       res,
       200,
       true,
-      "Password reset link sent to your email.",
+      'Password reset link sent to your email.'
     );
   } catch (error) {
-    console.log(error);
+    // console.log(error);
     next(error);
   }
 };
@@ -261,23 +261,23 @@ const resetPassword = async (req, res, next) => {
       res,
       400,
       false,
-      "Token and new password are required.",
+      'Token and new password are required.'
     );
   }
   try {
-    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
     const user = await prisma.user.findFirst({
       where: {
         resetToken: hashedToken,
         resetTokenExpires: {
-          gte: new Date(),
-        },
-      },
+          gte: new Date()
+        }
+      }
     });
 
     if (!user) {
-      return sendResponse(res, 400, false, "Invalid or expired reset token.");
+      return sendResponse(res, 400, false, 'Invalid or expired reset token.');
     }
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
@@ -286,18 +286,18 @@ const resetPassword = async (req, res, next) => {
       data: {
         password: hashedPassword,
         resetToken: null,
-        resetTokenExpires: null,
-      },
+        resetTokenExpires: null
+      }
     });
 
     return sendResponse(
       res,
       200,
       true,
-      "Password has been reset successfully.",
+      'Password has been reset successfully.'
     );
   } catch (error) {
-    console.log(error);
+    // console.log(error);
     next(error);
   }
 };
@@ -307,5 +307,5 @@ module.exports = {
   registerUser,
   verifyOtp,
   forgotPassword,
-  resetPassword,
+  resetPassword
 };

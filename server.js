@@ -1,23 +1,26 @@
-const express = require("express");
-const cors = require("cors");
-const cookieParser = require("cookie-parser");
+const express = require('express');
+const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const app = express();
-const errorHandler = require("./middleware/errorHandler");
-const prisma = require("./config/db");
+const errorHandler = require('./middleware/errorHandler');
+const prisma = require('./config/db');
+const helmet = require('helmet');
 
-require("dotenv").config();
+require('dotenv').config();
 
-const authRoutes = require("./routes/authRoutes");
+const authRoutes = require('./routes/authRoutes');
 
+app.use(helmet());
 app.use(cors());
 app.use(express.json());
 app.use(cookieParser());
 
-app.use("/api/user/auth", authRoutes);
+app.use('/api/user/auth', authRoutes);
 
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
+  // eslint-disable-next-line no-console
   console.log(`Server is running on port ${PORT}`);
 });
