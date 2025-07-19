@@ -137,3 +137,108 @@ exports.deleteInvoice = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.getInvoiceById = async (req, res, next) => {
+  const { invoiceId } = req.params;
+  const userId = req.user.id;
+  try {
+    const invoice = await prisma.invoice.findFirst({
+      where: { id: Number(invoiceId), userId: userId },
+      include: { items: true }
+    });
+    if (!invoice) {
+      return sendResponse(res, 404, false, 'Invoice not found.');
+    }
+    const {
+      id,
+      clientName,
+      clientEmail,
+      currency,
+      total,
+      status,
+      dueDate,
+      pdfUrl,
+      items
+    } = invoice;
+
+    const sanitizedInvoice = {
+      id,
+      clientName,
+      clientEmail,
+      currency,
+      total,
+      status,
+      dueDate,
+      pdfUrl,
+      items: items.map(({ id, description, amount }) => ({
+        id,
+        description,
+        amount
+      }))
+    };
+
+    return sendResponse(
+      res,
+      200,
+      true,
+      'Invoice retrieved successfully.',
+      sanitizedInvoice
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getInvoice = async (req, res, next) => {
+  const userId = req.user.id;
+  try {
+    const invoices = await prisma.invoice.findMany({
+      where: { userId: userId },
+      include: { items: true }
+    });
+
+    if (invoices.length === 0) {
+      return sendResponse(res, 200, true, 'No invoices found.', []);
+    }
+
+    const sanitizedInvoices = invoices.map((invoice) => {
+      const {
+        id,
+        clientName,
+        clientEmail,
+        currency,
+        total,
+        status,
+        dueDate,
+        pdfUrl,
+        items
+      } = invoice;
+
+      return {
+        id,
+        clientName,
+        clientEmail,
+        currency,
+        total,
+        status,
+        dueDate,
+        pdfUrl,
+        items: items.map(({ id, description, amount }) => ({
+          id,
+          description,
+          amount
+        }))
+      };
+    });
+
+    return sendResponse(
+      res,
+      200,
+      true,
+      'Invoice retrieved successfully.',
+      sanitizedInvoices
+    );
+  } catch (error) {
+    next(error);
+  }
+};

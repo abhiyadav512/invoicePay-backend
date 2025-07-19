@@ -10,4 +10,7 @@ router.delete(
   invoiceController.deleteInvoice
 );
 
+router.get('/:invoiceId', requireAuth, invoiceController.getInvoiceById);
+router.get('/', requireAuth, invoiceController.getInvoice);
+
 module.exports = router;
