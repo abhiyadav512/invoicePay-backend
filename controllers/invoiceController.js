@@ -1,3 +1,4 @@
+require('dotenv').config('');
 const prisma = require('../config/db');
 const {
   generateStripePaymentLink
@@ -50,9 +51,12 @@ exports.createInvoice = async (req, res, next) => {
       const { url, id } = await generateStripePaymentLink({
         amount: total,
         email: clientEmail,
-        metadata: { invoiceId: invoice.id },
+        metadata: {
+          invoiceId: invoice.id
+        },
         currency
       });
+      // console.log("user",url,"id",id);
       paymentLink = url;
       paymentLinkId = id;
     } catch (err) {
@@ -62,18 +66,15 @@ exports.createInvoice = async (req, res, next) => {
         res,
         500,
         false,
-        'Failed to generate payment link. Please try again later.'
+        'Failed to generate payment link. Please try again later.',
+        { date: err }
       );
     }
 
     // Update invoice with payment link
-    await prisma.invoice.update({
+    const updatedInvoice = await prisma.invoice.update({
       where: { id: invoice.id },
-      data: { paymentLink, paymentLinkId }
-    });
-
-    const updatedInvoice = await prisma.invoice.findUnique({
-      where: { id: invoice.id },
+      data: { paymentLink, paymentLinkId },
       include: { items: true }
     });
 
@@ -87,13 +88,40 @@ exports.createInvoice = async (req, res, next) => {
       senderUser
     );
 
+    const {
+      id,
+      currency: finalCurrency,
+      total: finalTotal,
+      status,
+      dueDate: finalDueDate,
+      pdfUrl,
+      items: invoiceItems
+    } = updatedInvoice;
+
+    const responseData = {
+      id,
+      clientName,
+      clientEmail,
+      currency: finalCurrency,
+      total: finalTotal,
+      status,
+      dueDate: finalDueDate,
+      pdfUrl,
+      paymentLink,
+      items: invoiceItems.map(({ id, description, amount }) => ({
+        id,
+        description,
+        amount
+      }))
+    };
+
     // Respond with updated invoice (with paymentLink)
     sendResponse(
       res,
       201,
       true,
       'Invoice created and email sent.',
-      updatedInvoice
+      responseData
     );
   } catch (error) {
     // console.error(error);

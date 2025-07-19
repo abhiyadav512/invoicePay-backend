@@ -1,5 +1,5 @@
-const nodemailer = require('nodemailer');
 require('dotenv').config();
+const nodemailer = require('nodemailer');
 
 const sendEmail = async ({ to, subject, html }) => {
   const transporter = nodemailer.createTransport({

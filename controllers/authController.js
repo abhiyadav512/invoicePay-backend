@@ -1,5 +1,5 @@
-const prisma = require('../config/db');
 require('dotenv').config();
+const prisma = require('../config/db');
 const generateOtpEmail = require('../services/generateOtpEmail');
 const sendEmail = require('../helper/sendEmail');
 const sendResponse = require('../helper/sendResponse');

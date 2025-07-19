@@ -37,18 +37,18 @@ model Invoice {
   user   User   @relation(fields: [userId], references: [id])
   userId String
 
-  clientName  String
-  clientEmail String
-  currency    String        @default("INR")
-  total       Int
-  status      InvoiceStatus @default(UNPAID)
-  dueDate     DateTime
-  paymentLink String?
-  paymentLinkId   String?      
-  pdfUrl      String?
-  items       InvoiceItem[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  clientName    String
+  clientEmail   String
+  currency      String        @default("INR")
+  total         Int
+  status        InvoiceStatus @default(UNPAID)
+  dueDate       DateTime
+  paymentLink   String?
+  paymentLinkId String?
+  pdfUrl        String?
+  items         InvoiceItem[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 }
 
 model InvoiceItem {
@@ -63,4 +63,5 @@ enum InvoiceStatus {
   UNPAID
   PAID
   OVERDUE
+  FAILED
 }
