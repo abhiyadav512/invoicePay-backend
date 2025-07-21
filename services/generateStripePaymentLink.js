@@ -28,7 +28,7 @@ exports.generateStripePaymentLink = async ({
       metadata: {
         invoiceId: metadata.invoiceId.toString()
       },
-      success_url: `${process.env.FRONTEND_URL || 'https://your-domain.com'}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${process.env.FRONTEND_URL || 'https://abhishek512.vercel.app/'}`,
       cancel_url: `${process.env.FRONTEND_URL || 'https://your-domain.com'}/payment-cancelled`,
       expires_at: Math.floor(Date.now() / 1000) + 24 * 60 * 60 // 24 hours from now
     });

@@ -10,7 +10,8 @@ export default defineConfig([
       'build/**',
       'prisma/**',
       'node_modules/** ',
-      ' generated/**'
+      ' generated/**',
+      'assets/**'
     ]
   },
   {

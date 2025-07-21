@@ -6,6 +6,7 @@ const {
 const { sendInvoiceEmail } = require('../services/sendInvoiceEmail');
 const sendResponse = require('../helper/sendResponse');
 const Stripe = require('stripe');
+const { generateInvoicePdf } = require('../services/generateInvoicePdf');
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
 exports.createInvoice = async (req, res, next) => {
@@ -78,6 +79,16 @@ exports.createInvoice = async (req, res, next) => {
       include: { items: true }
     });
 
+    const senderCompany = {
+      name: 'Zylker Electronics Hub',
+      address1: '14B, Northern Street',
+      address2: 'Greater South Avenue',
+      address3: 'New York New York 10001',
+      country: 'U.S.A'
+    };
+
+    const pdfBuffer = await generateInvoicePdf(updatedInvoice, senderCompany);
+
     const senderUser = req.user;
     // Send invoice email
     await sendInvoiceEmail(
@@ -85,7 +96,8 @@ exports.createInvoice = async (req, res, next) => {
       clientName,
       paymentLink,
       updatedInvoice,
-      senderUser
+      senderUser,
+      pdfBuffer
     );
 
     const {
