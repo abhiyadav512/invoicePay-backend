@@ -210,10 +210,10 @@ function generateItemsTableTemplate(doc, invoice, primaryBlue, darkGray) {
     .fontSize(11)
     .fillColor('#ffffff')
     .text('#', 60, tableTop + 10)
-    .text('Item & Description', 85, tableTop + 10, { width: 320 })
-    .text('Qty', 420, tableTop + 10)
-    .text('Rate', 460, tableTop + 10)
-    .text('Amount', 500, tableTop + 10);
+    .text('Item & Description', 85, tableTop + 10, { width: 250 })
+    .text('Qty', 350, tableTop + 10, { width: 40, align: 'right' })
+    .text('Rate', 400, tableTop + 10, { width: 60, align: 'right' })
+    .text('Amount', 470, tableTop + 10, { width: 70, align: 'right' });
 
   // Table rows
   let currentY = tableTop + 40;
@@ -253,24 +253,27 @@ function generateItemsTableTemplate(doc, invoice, primaryBlue, darkGray) {
     // Row content with wider description area
     doc
       .fontSize(10)
-      .fillColor(darkGray)
+      .fillColor('#1f2937')
       .text((index + 1).toString(), 60, currentY)
-      .text(item.name || item.description, 85, currentY, { width: 320 });
+      .text(item.name || item.description, 85, currentY, { width: 250 });
 
     // Item description/subtitle with more space
     if (item.description && item.name) {
       doc
         .fontSize(9)
         .fillColor('#6b7280')
-        .text(item.description, 85, currentY + 15, { width: 320, height: 30 });
+        .text(item.description, 85, currentY + 12, { width: 250 });
     }
 
     doc
       .fontSize(10)
-      .fillColor(darkGray)
-      .text(qty.toFixed(2), 420, currentY)
-      .text(`₹${rate.toFixed(2)}`, 460, currentY)
-      .text(`₹${amount.toFixed(2)}`, 500, currentY);
+      .fillColor('#1f2937')
+      .text(qty.toFixed(2), 350, currentY, { width: 40, align: 'right' })
+      .text(`₹${rate.toFixed(2)}`, 400, currentY, { width: 60, align: 'right' })
+      .text(`₹${amount.toFixed(2)}`, 470, currentY, {
+        width: 70,
+        align: 'right'
+      });
 
     currentY += rowHeight;
     itemsProcessed++;
