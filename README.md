@@ -1,111 +1,190 @@
-Auth API
+#  API Documentation
 
----
+##  Auth API Endpoints
 
-Features
-
-- User Registration with email verification via OTP
-- User Login with JWT token and secure HTTP-only cookie
-- OTP Verification to activate user accounts
-- Protected route to get the authenticated user's info
-- Logout endpoint to clear authentication cookies
-- Input validation with Zod schemas
-- Rate limiting on `/login` and `/verifiy-otp` endpoints
-- Secure cookie handling with environment-aware settings
-
----
-
-API Endpoints
-
-POST `/register`
+### POST `/register`
 
 Registers a new user or resends OTP if the email exists but is not verified.
 
-Request body:
-
+#### Request Body
+```json
 {
-"name": "John Doe",
-"email": "john@example.com",
-"password": "your_password",
-"location": "City",
-"dob": "1990-01-01",
-"number": "1234567890"
+  "name": "John Doe",
+  "email": "john@example.com",
+  "password": "your_password",
+  "location": "City",
+  "dob": "1990-01-01",
+  "number": "1234567890"
 }
+```
 
-Response:
-
-- `200 OK` on success, OTP sent to email
-- `409 Conflict` if email already verified
-- `429 Too Many Requests` if OTP requested too frequently
+#### Response
+- `200 OK` – OTP sent to email
+- `409 Conflict` – Email already verified
+- `429 Too Many Requests` – OTP requested too frequently
 
 ---
 
-POST `/login`
+### POST `/login`
 
 Logs in a user with email and password.
 
-Request body:
-
+#### Request Body
+```json
 {
-"email": "john@example.com",
-"password": "your_password"
+  "email": "john@example.com",
+  "password": "your_password"
 }
+```
 
-Response:
-
-- `200 OK` with user info, and sets a secure HTTP-only cookie named `token`
-- `401 Unauthorized` if credentials are invalid
-- `403 Forbidden` if email is not verified
-- Rate limited to 5 attempts per 15 minutes per IP
+#### Response
+- `200 OK` – Login successful; sets a secure HTTP-only cookie named `token`
+- `401 Unauthorized` – Invalid credentials
+- `403 Forbidden` – Email not verified
+- **Rate Limited** – Max 5 attempts per 15 minutes per IP
 
 ---
 
-POST `/verifiy-otp`
+### POST `/verify-otp`
 
 Verifies the OTP sent to the user’s email.
 
-Request body:
-
+#### Request Body
+```json
 {
-"email": "john@example.com",
-"otp": "123456"
+  "email": "john@example.com",
+  "otp": "123456"
 }
+```
 
-Response:
-
-- `200 OK` on successful verification
-- `400 Bad Request` if OTP invalid or expired
-- `429 Too Many Requests` if too many attempts made
+#### Response
+- `200 OK` – OTP verified successfully
+- `400 Bad Request` – Invalid or expired OTP
+- `429 Too Many Requests` – Too many attempts
 
 ---
 
-GET `/me`
+### GET `/me`
 
 Returns the authenticated user's information.
 
-Headers:  
+#### Headers
 Requires the `token` cookie set by login.
 
-Response:
-
+#### Response
+```json
 {
-"success": true,
-"user": {
-"id": 1,
-"name": "John Doe",
-"email": "john@example.com"
+  "success": true,
+  "user": {
+    "id": 1,
+    "name": "John Doe",
+    "email": "john@example.com"
+  }
 }
-}
+```
 
 ---
 
-POST `/logout`
+### POST `/logout`
 
 Logs out the user by clearing the authentication cookie.
 
-Response:
-
+#### Response
+```json
 {
-"success": true,
-"message": "Logged out"
+  "success": true,
+  "message": "Logged out"
 }
+```
+
+---
+
+##  Invoice API Endpoints
+
+### POST `/invoice/create`
+
+Creates a new invoice and sends a Stripe payment link with PDF to the client.
+
+#### Request Body
+```json
+{
+  "clientName": "Jane Smith",
+  "clientEmail": "jane@example.com",
+  "currency": "INR",
+  "dueDate": "2025-07-31",
+  "items": [
+    {
+      "description": "Web Design",
+      "amount": 5000
+    },
+    {
+      "description": "Hosting",
+      "amount": 1500
+    }
+  ]
+}
+```
+
+#### Response
+- `201 Created` – Invoice created, Stripe link generated, and email sent
+- `400 Bad Request` – Missing or empty items array
+- `500 Internal Server Error` – Stripe link generation failed
+
+---
+
+### GET `/invoice/`
+
+Fetches all invoices for the authenticated user.
+
+#### Response
+```json
+{
+  "success": true,
+  "message": "Invoice retrieved successfully.",
+  "data": [
+    {
+      "id": 1,
+      "clientName": "Jane Smith",
+      "clientEmail": "jane@example.com",
+      "currency": "INR",
+      "total": 6500,
+      "status": "UNPAID",
+      "dueDate": "2025-07-31T00:00:00.000Z",
+      "pdfUrl": null,
+      "items": [
+        {
+          "id": 101,
+          "description": "Web Design",
+          "amount": 5000
+        },
+        {
+          "id": 102,
+          "description": "Hosting",
+          "amount": 1500
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+### GET `/invoice/:invoiceId`
+
+Returns details for a specific invoice.
+
+#### Response
+- `200 OK` – Invoice found
+- `404 Not Found` – No invoice with provided ID
+
+---
+
+### DELETE `/invoice/delete/:invoiceId`
+
+Deletes an unpaid invoice and deactivates the Stripe link.
+
+#### Response
+- `200 OK` – Invoice deleted successfully
+- `400 Bad Request` – Cannot delete a paid invoice
+- `404 Not Found` – Invoice not found
