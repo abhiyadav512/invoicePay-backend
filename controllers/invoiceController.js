@@ -231,11 +231,23 @@ exports.getInvoiceById = async (req, res, next) => {
 
 exports.getInvoice = async (req, res, next) => {
   const userId = req.user.id;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
+
   try {
-    const invoices = await prisma.invoice.findMany({
-      where: { userId: userId },
-      include: { items: true }
-    });
+    const [invoices, totalCount] = await Promise.all([
+      prisma.invoice.findMany({
+        where: { userId },
+        include: { items: true },
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' } // optional sorting
+      }),
+      prisma.invoice.count({
+        where: { userId }
+      })
+    ]);
 
     if (invoices.length === 0) {
       return sendResponse(res, 200, true, 'No invoices found.', []);
@@ -271,13 +283,15 @@ exports.getInvoice = async (req, res, next) => {
       };
     });
 
-    return sendResponse(
-      res,
-      200,
-      true,
-      'Invoice retrieved successfully.',
-      sanitizedInvoices
-    );
+    return sendResponse(res, 200, true, 'Invoices retrieved successfully.', {
+      data: sanitizedInvoices,
+      pagination: {
+        total: totalCount,
+        page,
+        limit,
+        totalPages: Math.ceil(totalCount / limit)
+      }
+    });
   } catch (error) {
     next(error);
   }
