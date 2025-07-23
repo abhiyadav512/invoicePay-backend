@@ -18,7 +18,9 @@ app.use(cookieParser());
 
 const authRoutes = require('./routes/authRoutes');
 const invoiceRoutes = require('./routes/invoiceRoutes');
+const dahsboardRoutes = require('./routes/dashboardRoutes');
 
+app.use('/api/dashboard/', dahsboardRoutes);
 app.use('/api/user/auth', authRoutes);
 app.use('/api/invoice', invoiceRoutes);
 
