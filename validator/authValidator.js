@@ -3,10 +3,7 @@ const { z } = require('zod');
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6, 'Password must be at least 6 characters long'),
-  name: z.string().min(1),
-  location: z.string().min(1),
-  dob: z.string(),
-  number: z.string().min(10).max(15).optional()
+  name: z.string().min(1)
 });
 
 const loginSchema = z.object({

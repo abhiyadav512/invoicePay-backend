@@ -19,8 +19,6 @@ model User {
   location          String?
   number            String?
   isVerified        Boolean   @default(false)
-  otpHash           String?
-  otpExpiresAt      DateTime?
   resetToken        String?
   resetTokenExpires DateTime?
   invoices          Invoice[]
@@ -30,6 +28,16 @@ model User {
   @@index([email])
   @@index([isVerified])
   @@index([email, isVerified]) // Composite index for faster filtering
+}
+
+model OtpRequest {
+  id           String   @id @default(ulid())
+  email        String   @unique
+  name         String
+  password     String
+  otpHash      String
+  otpExpiresAt DateTime
+  createdAt    DateTime @default(now())
 }
 
 model Invoice {

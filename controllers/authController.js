@@ -6,6 +6,7 @@ const sendResponse = require('../helper/sendResponse');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const cron = require('node-cron');
 
 const loginUser = async (req, res, next) => {
   const { email, password } = req.body;
@@ -58,13 +59,12 @@ const loginUser = async (req, res, next) => {
 };
 
 const registerUser = async (req, res, next) => {
-  const { email, password, location, dob, name, number } = req.body;
+  const { email, password, name } = req.body;
   try {
-    const existingUser = await prisma.user.findUnique({ where: { email } });
+    const existingUser = await prisma.OtpRequest.findUnique({
+      where: { email }
+    });
 
-    const dobDate = new Date(dob);
-
-    // case 1 : Email exists AND verified
     if (existingUser && existingUser.isVerified) {
       return sendResponse(
         res,
@@ -74,68 +74,41 @@ const registerUser = async (req, res, next) => {
       );
     }
 
-    const otp = Math.floor(10000 + Math.random() * 900000).toString();
-    const hashOtp = await bcrypt.hash(otp, 10);
-    const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const existingPending = await prisma.OtpRequest.findUnique({
+      where: { email }
+    });
+    const now = new Date();
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // case 2 : Email exists but not verified - resend otp
-    if (existingUser && !existingUser.isVerified) {
-      const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
-      if (
-        existingUser.otpExpiresAt &&
-        existingUser.otpExpiresAt > oneMinuteAgo
-      ) {
-        return sendResponse(
-          res,
-          429,
-          false,
-          'Please wait at least 60 seconds before requesting a new OTP.'
-        );
-      }
-
-      const updateUser = await prisma.user.update({
-        where: { email },
-        data: {
-          name,
-          password: hashedPassword,
-          dob: dobDate,
-          location,
-          number,
-          otpHash: hashOtp,
-          otpExpiresAt
-        }
-      });
-      await sendEmail({
-        to: email,
-        subject: 'Your new OTP code.',
-        html: generateOtpEmail(name, otp)
-      });
-
+    if (existingPending && existingPending.otpExpiresAt > now) {
       return sendResponse(
         res,
-        200,
-        true,
-        'Unverified user found. OTP has been resent.',
-        { email: updateUser.email }
+        429,
+        false,
+        'Please wait before requesting a new OTP.'
       );
     }
 
-    //Case 3: New user — create and send OTP
-    const newUser = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        dob: dobDate,
-        location,
-        number,
-        isVerified: false,
-        otpHash: hashOtp,
-        otpExpiresAt
-      }
-    });
+    const otp = Math.floor(10000 + Math.random() * 900000).toString();
+    const otpHash = await bcrypt.hash(otp, 10);
+    const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    if (existingPending) {
+      await prisma.OtpRequest.update({
+        where: { email },
+        data: { name, password: hashedPassword, otpHash, otpExpiresAt }
+      });
+    } else {
+      await prisma.OtpRequest.create({
+        data: {
+          name,
+          email,
+          password: hashedPassword,
+          otpHash,
+          otpExpiresAt
+        }
+      });
+    }
 
     await sendEmail({
       to: email,
@@ -143,13 +116,9 @@ const registerUser = async (req, res, next) => {
       html: generateOtpEmail(name, otp)
     });
 
-    return sendResponse(
-      res,
-      200,
-      true,
-      'User registered successfully. OTP sent to email.',
-      { email: newUser.email }
-    );
+    return sendResponse(res, 200, true, 'OTP sent to email. Please verify.', {
+      email: email
+    });
   } catch (error) {
     // console.error(error);
     next(error);
@@ -159,44 +128,39 @@ const registerUser = async (req, res, next) => {
 const verifyOtp = async (req, res, next) => {
   const { email, otp } = req.body;
   try {
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.OtpRequest.findUnique({ where: { email } });
 
     if (!user) {
       return sendResponse(res, 404, false, 'User not found');
     }
 
-    if (!user.otpHash || !user.otpExpiresAt) {
-      return sendResponse(
-        res,
-        400,
-        false,
-        'OTP not requested or already verified.'
-      );
-    }
-
     if (new Date() > user.otpExpiresAt) {
-      const err = new Error('OTP has expired.');
-      err.status = 400;
-      return next(err);
+      await prisma.OtpRequest.delete({ where: { email } });
+      return sendResponse(res, 400, false, 'OTP expired.');
     }
 
     const isValid = await bcrypt.compare(otp, user.otpHash);
     if (!isValid) {
-      const err = new Error('Invalid OTP.');
-      err.status = 400;
-      return next(err);
+      return sendResponse(res, 400, false, 'Invalid OTP.');
     }
 
-    await prisma.user.update({
-      where: { email },
+    await prisma.user.create({
       data: {
-        isVerified: true,
-        otpHash: null,
-        otpExpiresAt: null
+        name: user.name,
+        email: user.email,
+        password: user.password,
+        isVerified: true
       }
     });
 
-    return sendResponse(res, 200, true, 'Email verified successfully.');
+    await prisma.OtpRequest.delete({ where: { email } });
+
+    return sendResponse(
+      res,
+      200,
+      true,
+      'User registered and verified successfully.'
+    );
   } catch (error) {
     // console.log(error);
     next(error);
@@ -301,6 +265,21 @@ const resetPassword = async (req, res, next) => {
     next(error);
   }
 };
+
+const deleteExpiredOtpRequests = async () => {
+  const now = new Date();
+  const expired = await prisma.OtpRequest.findMany({
+    where: {
+      otpExpiresAt: { lt: now }
+    }
+  });
+};
+
+// Run every 30 minutes, you can adjust the timing
+cron.schedule(' */30 * * * *', () => {
+  // console.log('Running scheduled cleanup of expired pending users...');
+  deleteExpiredOtpRequests();
+});
 
 module.exports = {
   loginUser,

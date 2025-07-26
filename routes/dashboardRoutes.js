@@ -12,4 +12,5 @@ router.get('/summary/data', requireAuth, getInvoiceSummary);
 router.get('/recent/data', requireAuth, getRecentInvoices);
 
 router.get('/invoices', requireAuth, getPaidOrUnpaid);
+
 module.exports = router;

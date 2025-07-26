@@ -6,7 +6,7 @@ const validateRequest = (schema) => (req, res, next) => {
     // console.log('error form valid ', err);
     return res.status(400).json({
       success: false,
-      message: 'Validation failed',
+      message: err?.message || 'Validation failed',
       errors: err.errors
     });
   }
