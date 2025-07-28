@@ -25,9 +25,45 @@ model User {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
+  business Business?
+
   @@index([email])
   @@index([isVerified])
   @@index([email, isVerified]) // Composite index for faster filtering
+}
+
+model Business {
+  id String @id @default(uuid())
+
+  name        String
+  description String?
+  website     String?
+  phone       String?
+  email       String?
+
+  number String?
+
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId String @unique
+
+  address    String?
+  city       String?
+  state      String?
+  country    String? @default("India")
+  postalCode String?
+
+  businessType String?
+  taxId        String?
+  logo         String?
+
+  defaultCurrency String    @default("INR")
+  timezone        String    @default("Asia/Kolkata")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  Invoice         Invoice[]
+
+  @@index([ownerId])
+  @@index([name])
 }
 
 model OtpRequest {
@@ -45,6 +81,10 @@ model Invoice {
   user   User   @relation(fields: [userId], references: [id])
   userId String
 
+  invoiceNumber Int
+  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId    String
+
   clientName    String
   clientEmail   String
   currency      String        @default("INR")
@@ -57,6 +97,13 @@ model Invoice {
   items         InvoiceItem[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([businessId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([clientEmail])
+  @@index([createdAt])
 }
 
 model InvoiceItem {

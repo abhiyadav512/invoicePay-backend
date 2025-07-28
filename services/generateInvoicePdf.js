@@ -41,7 +41,7 @@ function generateTemplateInvoice(doc, invoice, senderCompany) {
   drawHeaderBackground(doc);
 
   // Company Information (Top Left)
-  generateCompanyHeader(doc, senderCompany, darkGray);
+  generateCompanyHeader(doc, senderCompany, darkGray, lightGray);
 
   // Invoice Title (Top Right) - Adjusted position and size
   doc
@@ -98,24 +98,60 @@ function drawHeaderBackground(doc) {
   doc.restore();
 }
 
-function generateCompanyHeader(doc, senderCompany, darkGray) {
-  const companyName = senderCompany.name || 'Your Company Name';
-  const address1 = senderCompany.address1 || '123 Business Street';
-  const address2 = senderCompany.address2 || 'City, State 12345';
-  const country = senderCompany.country || 'Country';
+function generateCompanyHeader(doc, senderCompany, darkGray, lightGray) {
+  // Extract business information with fallbacks
+  const companyName = senderCompany.name || 'Your Business Name';
+  const address1 = senderCompany.address1 || '';
+  const address2 = senderCompany.address2 || '';
+  const address3 = senderCompany.address3 || '';
+  const phone = senderCompany.phone || '';
+  const email = senderCompany.email || '';
+  const taxId = senderCompany.taxId || '';
 
+  // Company name
   doc.fontSize(18).fillColor(darkGray).text(companyName, 50, 60);
 
-  doc
-    .fontSize(10)
-    .fillColor('#6b7280')
-    .text(address1, 50, 85)
-    .text(address2, 50, 100)
-    .text(country, 50, 115);
+  let currentY = 85;
+
+  // Address lines (only show if they exist)
+  if (address1) {
+    doc.fontSize(10).fillColor(lightGray).text(address1, 50, currentY);
+    currentY += 15;
+  }
+
+  if (address2) {
+    doc.fontSize(10).fillColor(lightGray).text(address2, 50, currentY);
+    currentY += 15;
+  }
+
+  if (address3) {
+    doc.fontSize(10).fillColor(lightGray).text(address3, 50, currentY);
+    currentY += 15;
+  }
+
+  // Contact information
+  if (phone) {
+    doc.fontSize(10).fillColor(lightGray).text(`Phone: ${phone}`, 50, currentY);
+    currentY += 15;
+  }
+
+  if (email) {
+    doc.fontSize(10).fillColor(lightGray).text(`Email: ${email}`, 50, currentY);
+    currentY += 15;
+  }
+
+  // Tax ID (GST, VAT, etc.)
+  if (taxId) {
+    doc
+      .fontSize(10)
+      .fillColor(lightGray)
+      .text(`Tax ID: ${taxId}`, 50, currentY);
+    currentY += 15;
+  }
 }
 
 function generateInvoiceDetailsSection(doc, invoice, darkGray, lightGray) {
-  const startY = 160;
+  const startY = 180; // Increased from 160 to accommodate larger company header
 
   // Create the details box with border
   doc.rect(50, startY, 495, 80).stroke('#d1d5db');
@@ -129,12 +165,21 @@ function generateInvoiceDetailsSection(doc, invoice, darkGray, lightGray) {
     .text('Terms', 70, startY + 45)
     .text('Due Date', 70, startY + 60);
 
+  // Use formattedInvoiceNumber if available, otherwise fall back to invoiceNumber or id
+  const displayInvoiceNumber =
+    invoice.formattedInvoiceNumber ||
+    `INV-${String(invoice.invoiceNumber).padStart(3, '0')}` ||
+    invoice.id ||
+    'INV-000001';
+
   doc
     .fontSize(10)
     .fillColor(darkGray)
-    .text(invoice.invoiceNumber || invoice.id || 'INV-000001', 150, startY + 15)
+    .text(displayInvoiceNumber, 150, startY + 15)
     .text(
-      new Date(invoice.invoiceDate || Date.now()).toLocaleDateString('en-US', {
+      new Date(
+        invoice.createdAt || invoice.invoiceDate || Date.now()
+      ).toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',
         day: '2-digit'
@@ -152,51 +197,106 @@ function generateInvoiceDetailsSection(doc, invoice, darkGray, lightGray) {
       150,
       startY + 60
     );
-}
 
-function generateBillingSection(doc, invoice, darkGray, lightGray) {
-  const startY = 260;
+  // Right column - Additional invoice details
+  doc
+    .fontSize(10)
+    .fillColor(lightGray)
+    .text('Currency', 350, startY + 15)
+    .text('Status', 350, startY + 30);
 
   doc
     .fontSize(10)
     .fillColor(darkGray)
-    .text('Bill To', 60, startY + 4);
+    .text(invoice.currency || 'INR', 420, startY + 15)
+    .text(invoice.status || 'UNPAID', 420, startY + 30);
+}
 
-  //   // Ship To header
-  //   doc.rect(300, startY, 245, 18).fill('#f3f4f6');
+function generateBillingSection(
+  doc,
+  invoice,
+  primaryBlue,
+  darkGray,
+  lightGray
+) {
+  const startY = 280; // Adjusted for new layout
 
-  //   doc.fillColor(darkGray).text('Ship To', 310, startY + 4);
+  // Bill To header with background
+  doc.rect(50, startY, 245, 18).fill('#f3f4f6');
+  doc.fillColor(darkGray).text('Bill To', 60, startY + 4);
 
   // Bill To content
   doc
-    .fontSize(9)
+    .fontSize(11)
     .fillColor(darkGray)
-    .text(invoice.clientName, 60, startY + 22);
+    .text(invoice.clientName, 60, startY + 25);
 
   doc
-    .fontSize(8)
+    .fontSize(9)
     .fillColor(lightGray)
-    .text(invoice.clientAddress || invoice.clientEmail, 60, startY + 35, {
-      width: 220
-    });
+    .text(invoice.clientEmail, 60, startY + 42);
 
-  // Ship To content (same as Bill To if not provided)
-  //   const shipTo = invoice.shipTo || {
-  //     name: invoice.clientName,
-  //     address: invoice.clientAddress || invoice.clientEmail
-  //   };
+  // Add client phone if available
+  if (invoice.clientPhone) {
+    doc
+      .fontSize(9)
+      .fillColor(lightGray)
+      .text(invoice.clientPhone, 60, startY + 57);
+  }
 
-  //   doc
-  //     .fontSize(8)
-  //     .fillColor(lightGray)
-  //     .text(shipTo.address || shipTo.name, 310, startY + 22, { width: 220 });
+  // Add client address if available
+  if (invoice.clientAddress) {
+    doc
+      .fontSize(9)
+      .fillColor(lightGray)
+      .text(
+        invoice.clientAddress,
+        60,
+        startY + (invoice.clientPhone ? 72 : 57),
+        {
+          width: 220
+        }
+      );
+  }
+
+  // Business Info section (right side)
+  doc.rect(300, startY, 245, 18).fill('#f3f4f6');
+  doc.fillColor(darkGray).text('From', 310, startY + 4);
+
+  // Business details (right side summary)
+  if (invoice.business) {
+    doc
+      .fontSize(10)
+      .fillColor(darkGray)
+      .text(invoice.business.name, 310, startY + 25);
+
+    if (invoice.business.email) {
+      doc
+        .fontSize(9)
+        .fillColor(lightGray)
+        .text(invoice.business.email, 310, startY + 42);
+    }
+
+    if (invoice.business.phone) {
+      doc
+        .fontSize(9)
+        .fillColor(lightGray)
+        .text(invoice.business.phone, 310, startY + 57);
+    }
+  }
 }
 
-function generateItemsTableTemplate(doc, invoice, primaryBlue, darkGray) {
-  const tableTop = 340;
+function generateItemsTableTemplate(
+  doc,
+  invoice,
+  primaryBlue,
+  lightBlue,
+  darkGray
+) {
+  const tableTop = 380; // Adjusted for new layout
   const tableWidth = 495;
-  const rowHeight = 20;
-  const maxItemsPerPage = 8;
+  const rowHeight = 25; // Increased row height
+  const maxItemsPerPage = 6; // Reduced to accommodate larger rows
   let currentPage = 1;
 
   // Table header background
@@ -205,24 +305,29 @@ function generateItemsTableTemplate(doc, invoice, primaryBlue, darkGray) {
   // Table border
   doc.rect(50, tableTop, tableWidth, 30).stroke('#ffffff');
 
-  // Header text with wider "Item & Description" column
+  // Header text with proper column widths
   doc
     .fontSize(11)
     .fillColor('#ffffff')
-    .text('#', 60, tableTop + 10)
-    .text('Item & Description', 85, tableTop + 10, { width: 250 })
-    .text('Qty', 350, tableTop + 10, { width: 40, align: 'right' })
-    .text('Rate', 400, tableTop + 10, { width: 60, align: 'right' })
-    .text('Amount', 470, tableTop + 10, { width: 70, align: 'right' });
+    .text('#', 60, tableTop + 10, { width: 25 })
+    .text('Item & Description', 90, tableTop + 10, { width: 250 })
+    .text('Qty', 350, tableTop + 10, { width: 40, align: 'center' })
+    .text('Rate', 400, tableTop + 10, { width: 60, align: 'center' })
+    .text('Amount', 470, tableTop + 10, { width: 70, align: 'center' });
 
   // Table rows
   let currentY = tableTop + 40;
   let itemsProcessed = 0;
 
   invoice.items.forEach((item, index) => {
+    // Handle different item structure (your schema vs template expectations)
     const qty = item.quantity || 1;
-    const rate = item.rate || item.amount;
-    const amount = qty * rate;
+    const rate = item.rate || item.amount; // Fallback to amount if rate not available
+    const amount = item.amount || qty * rate;
+
+    // Convert amounts from paise to rupees if needed (assuming amounts are in paise)
+    const displayRate = rate / 100;
+    const displayAmount = amount / 100;
 
     // Check if we need a new page
     if (itemsProcessed >= maxItemsPerPage && index < invoice.items.length - 1) {
@@ -238,11 +343,11 @@ function generateItemsTableTemplate(doc, invoice, primaryBlue, darkGray) {
       doc
         .fontSize(11)
         .fillColor('#ffffff')
-        .text('#', 60, currentY - 20)
-        .text('Item & Description', 85, currentY - 20, { width: 320 })
-        .text('Qty', 420, currentY - 20)
-        .text('Rate', 460, currentY - 20)
-        .text('Amount', 500, currentY - 20);
+        .text('#', 60, currentY - 20, { width: 25 })
+        .text('Item & Description', 90, currentY - 20, { width: 250 })
+        .text('Qty', 350, currentY - 20, { width: 40, align: 'center' })
+        .text('Rate', 400, currentY - 20, { width: 60, align: 'center' })
+        .text('Amount', 470, currentY - 20, { width: 70, align: 'center' });
     }
 
     // Row background (alternating)
@@ -250,42 +355,39 @@ function generateItemsTableTemplate(doc, invoice, primaryBlue, darkGray) {
       doc.rect(50, currentY - 5, tableWidth, rowHeight).fill('#f9fafb');
     }
 
-    // Row content with wider description area
+    // Row borders
+    doc.rect(50, currentY - 5, tableWidth, rowHeight).stroke('#e5e7eb');
+
+    // Row content
     doc
       .fontSize(10)
       .fillColor('#1f2937')
-      .text((index + 1).toString(), 60, currentY)
-      .text(item.name || item.description, 85, currentY, { width: 250 });
-
-    // Item description/subtitle with more space
-    if (item.description && item.name) {
-      doc
-        .fontSize(9)
-        .fillColor('#6b7280')
-        .text(item.description, 85, currentY + 12, { width: 250 });
-    }
+      .text((index + 1).toString(), 60, currentY, { width: 25 })
+      .text(item.description || item.name || 'Item', 90, currentY, {
+        width: 250
+      });
 
     doc
       .fontSize(10)
       .fillColor('#1f2937')
-      .text(qty.toFixed(2), 350, currentY, { width: 40, align: 'right' })
-      .text(`₹${rate.toFixed(2)}`, 400, currentY, { width: 60, align: 'right' })
-      .text(`₹${amount.toFixed(2)}`, 470, currentY, {
+      .text(qty.toString(), 350, currentY, { width: 40, align: 'center' })
+      .text(`₹${displayRate.toFixed(2)}`, 400, currentY, {
+        width: 60,
+        align: 'center'
+      })
+      .text(`₹${displayAmount.toFixed(2)}`, 470, currentY, {
         width: 70,
-        align: 'right'
+        align: 'center'
       });
 
     currentY += rowHeight;
     itemsProcessed++;
   });
 
-  // Table border
-  const tableHeight = Math.min(
-    itemsProcessed * rowHeight + 40,
-    maxItemsPerPage * rowHeight + 40
-  );
+  // Final table border
+  const finalTableHeight = itemsProcessed * rowHeight + 40;
   const tableStartY = currentPage > 1 ? 50 : tableTop;
-  doc.rect(50, tableStartY, tableWidth, tableHeight).stroke('#d1d5db');
+  doc.rect(50, tableStartY, tableWidth, finalTableHeight).stroke('#d1d5db');
 
   return currentY;
 }
@@ -305,7 +407,7 @@ function generateTotalsAndTerms(
   doc
     .fontSize(10)
     .fillColor(lightGray)
-    .text('Thanks for shopping with us.', 60, startY);
+    .text('Thank you for your business!', 60, startY);
 
   doc
     .fontSize(12)
@@ -315,32 +417,107 @@ function generateTotalsAndTerms(
   doc
     .fontSize(9)
     .fillColor(lightGray)
-    .text(
-      'Full payment is due upon receipt of this invoice.',
-      60,
-      startY + 45,
-      { width: 300 }
-    )
-    .text('Late payments may incur additional charges or', 60, startY + 60, {
+    .text('Payment is due within 30 days of invoice date.', 60, startY + 45, {
       width: 300
     })
-    .text('interest as per the applicable laws.', 60, startY + 75, {
+    .text('Late payments may incur additional charges.', 60, startY + 60, {
       width: 300
-    });
+    })
+    .text(
+      'Please include invoice number in payment reference.',
+      60,
+      startY + 75,
+      {
+        width: 300
+      }
+    );
 
   // Right side - Totals box
   const totalsX = 350;
   const totalsWidth = 195;
 
-  // Totals background - reduced height (removed Balance Due)
-  doc.rect(totalsX, startY + 20, totalsWidth, 80).fill(lightBlue);
+  // Totals background
+  doc.rect(totalsX, startY + 20, totalsWidth, 100).fill(lightBlue);
+  doc.rect(totalsX, startY + 20, totalsWidth, 100).stroke('#cbd5e1');
 
-  // Total (removed Balance Due section)
+  // Calculate totals (convert from paise to rupees)
+  const subtotal = invoice.subtotal
+    ? invoice.subtotal / 100
+    : invoice.total / 100;
+  const taxAmount = invoice.taxAmount ? invoice.taxAmount / 100 : 0;
+  const discountAmount = invoice.discountAmount
+    ? invoice.discountAmount / 100
+    : 0;
+  const total = invoice.total / 100;
+
+  let totalsY = startY + 35;
+
+  // Subtotal
+  if (subtotal !== total || taxAmount > 0 || discountAmount > 0) {
+    doc
+      .fontSize(10)
+      .fillColor(darkGray)
+      .text('Subtotal:', totalsX + 15, totalsY)
+      .text(`₹${subtotal.toFixed(2)}`, totalsX + 120, totalsY, {
+        align: 'right',
+        width: 60
+      });
+    totalsY += 20;
+  }
+
+  // Tax
+  if (taxAmount > 0) {
+    doc
+      .fontSize(10)
+      .fillColor(darkGray)
+      .text('Tax:', totalsX + 15, totalsY)
+      .text(`₹${taxAmount.toFixed(2)}`, totalsX + 120, totalsY, {
+        align: 'right',
+        width: 60
+      });
+    totalsY += 20;
+  }
+
+  // Discount
+  if (discountAmount > 0) {
+    doc
+      .fontSize(10)
+      .fillColor(darkGray)
+      .text('Discount:', totalsX + 15, totalsY)
+      .text(`-₹${discountAmount.toFixed(2)}`, totalsX + 120, totalsY, {
+        align: 'right',
+        width: 60
+      });
+    totalsY += 20;
+  }
+
+  // Total line
+  doc.rect(totalsX + 15, totalsY - 5, totalsWidth - 30, 1).fill(darkGray);
+
   doc
-    .fontSize(12)
+    .fontSize(14)
     .fillColor(primaryBlue)
-    .text('Total', totalsX + 15, startY + 75)
-    .text(`₹${invoice.total.toFixed(2)}`, totalsX + 120, startY + 75);
+    .text('Total:', totalsX + 15, totalsY + 10)
+    .text(`₹${total.toFixed(2)}`, totalsX + 120, totalsY + 10, {
+      align: 'right',
+      width: 60
+    });
+
+  // Payment link note
+  if (invoice.paymentLink) {
+    doc
+      .fontSize(8)
+      .fillColor(lightGray)
+      .text(
+        'Scan QR code or use payment link to pay online',
+        totalsX + 15,
+        totalsY + 35,
+        {
+          width: totalsWidth - 30,
+          align: 'center'
+        }
+      );
+  }
 }
 
 function generateInvoicePayFooter(doc, lightGray) {
@@ -352,7 +529,7 @@ function generateInvoicePayFooter(doc, lightGray) {
       align: 'center',
       width: 495
     })
-    .text(`Created on ${new Date().toLocaleDateString()}`, 50, 765, {
+    .text(`Created on ${new Date().toLocaleDateString('en-IN')}`, 50, 765, {
       align: 'center',
       width: 495
     });

@@ -13,7 +13,7 @@ const loginUser = async (req, res, next) => {
   try {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
-      const err = new Error('Invalid email');
+      const err = new Error('User not found. Please register first.');
       err.status = 401;
       return next(err);
     }
@@ -54,7 +54,7 @@ const loginUser = async (req, res, next) => {
     });
   } catch (error) {
     // console.error(error);
-    next(error);
+    return next(error);
   }
 };
 
@@ -88,7 +88,7 @@ const registerUser = async (req, res, next) => {
       );
     }
 
-    const otp = Math.floor(10000 + Math.random() * 900000).toString();
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpHash = await bcrypt.hash(otp, 10);
     const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -96,13 +96,18 @@ const registerUser = async (req, res, next) => {
     if (existingPending) {
       await prisma.OtpRequest.update({
         where: { email },
-        data: { name, password: hashedPassword, otpHash, otpExpiresAt }
+        data: {
+          name,
+          password: hashedPassword,
+          otpHash,
+          otpExpiresAt
+        }
       });
     } else {
       await prisma.OtpRequest.create({
         data: {
-          name,
-          email,
+          name: name.trim(),
+          email: email.trim().toLowerCase(),
           password: hashedPassword,
           otpHash,
           otpExpiresAt
@@ -121,7 +126,7 @@ const registerUser = async (req, res, next) => {
     });
   } catch (error) {
     // console.error(error);
-    next(error);
+    return next(error);
   }
 };
 
@@ -163,7 +168,7 @@ const verifyOtp = async (req, res, next) => {
     );
   } catch (error) {
     // console.log(error);
-    next(error);
+    return next(error);
   }
 };
 
@@ -213,7 +218,7 @@ const forgotPassword = async (req, res, next) => {
     );
   } catch (error) {
     // console.log(error);
-    next(error);
+    return next(error);
   }
 };
 
@@ -262,6 +267,57 @@ const resetPassword = async (req, res, next) => {
     );
   } catch (error) {
     // console.log(error);
+    return next(error);
+  }
+};
+
+const getUserProfile = async (req, res, next) => {
+  const user = req.user;
+  try {
+    const userData = {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      dob: user.dob,
+      number: user.number,
+      location: user.location,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    };
+    sendResponse(res, 200, true, 'User profile', userData);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const updateProfile = async (req, res, next) => {
+  const userId = req.user?.id;
+
+  const { name, location, number, dob } = req.body;
+
+  try {
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        name: name.trim(),
+        location: location.trim(),
+        number: number.trim(),
+        dob: dob ? new Date(dob) : undefined
+      },
+      select: {
+        id: true,
+        name: true,
+        location: true,
+        number: true,
+        dob: true,
+        email: true,
+        updatedAt: true
+      }
+    });
+
+    return sendResponse(res, 201, true, 'Profile', updatedUser);
+  } catch (error) {
+    // console.error('Update profile error:', error);
     next(error);
   }
 };
@@ -286,5 +342,7 @@ module.exports = {
   registerUser,
   verifyOtp,
   forgotPassword,
-  resetPassword
+  resetPassword,
+  getUserProfile,
+  updateProfile
 };

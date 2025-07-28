@@ -6,16 +6,20 @@ const {
   registerUser,
   verifyOtp,
   forgotPassword,
-  resetPassword
+  resetPassword,
+  getUserProfile,
+  updateProfile
 } = require('../controllers/authController');
 
-const validateRequest = require('../middleware/validateRequest');
+const { validateRequest } = require('../middleware/validateRequest');
+
 const {
   loginSchema,
   registerSchema,
   verifyOtpSchema,
   forgotPasswordSchema,
-  resetPasswordSchema
+  resetPasswordSchema,
+  updateProfileSchema
 } = require('../validator/authValidator');
 const requireAuth = require('../middleware/requireAuth');
 
@@ -68,16 +72,18 @@ router.post(
   verifyOtp
 );
 
-router.get('/me', requireAuth, (req, res) => {
-  res.json({
-    success: true,
-    user: req.user
-  });
-});
+router.get('/me', requireAuth, getUserProfile);
 
 router.post('/logout', (req, res) => {
   res.clearCookie('token');
   return res.status(200).json({ success: true, message: 'Logged out' });
 });
+
+router.patch(
+  '/update',
+  requireAuth,
+  validateRequest(updateProfileSchema),
+  updateProfile
+);
 
 module.exports = router;
