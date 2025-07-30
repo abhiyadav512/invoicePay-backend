@@ -42,7 +42,7 @@ const loginUser = async (req, res, next) => {
     res.cookie('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'Strict',
+      sameSite: 'none',
       maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
     });
     return sendResponse(res, 200, true, 'Login successful', {
