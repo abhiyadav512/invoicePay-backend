@@ -286,13 +286,7 @@ function generateBillingSection(
   }
 }
 
-function generateItemsTableTemplate(
-  doc,
-  invoice,
-  primaryBlue,
-  lightBlue,
-  darkGray
-) {
+function generateItemsTableTemplate(doc, invoice, primaryBlue) {
   const tableTop = 380; // Adjusted for new layout
   const tableWidth = 495;
   const rowHeight = 25; // Increased row height
@@ -312,7 +306,6 @@ function generateItemsTableTemplate(
     .text('#', 60, tableTop + 10, { width: 25 })
     .text('Item & Description', 90, tableTop + 10, { width: 250 })
     .text('Qty', 350, tableTop + 10, { width: 40, align: 'center' })
-    .text('Rate', 400, tableTop + 10, { width: 60, align: 'center' })
     .text('Amount', 470, tableTop + 10, { width: 70, align: 'center' });
 
   // Table rows
@@ -322,12 +315,10 @@ function generateItemsTableTemplate(
   invoice.items.forEach((item, index) => {
     // Handle different item structure (your schema vs template expectations)
     const qty = item.quantity || 1;
-    const rate = item.rate || item.amount; // Fallback to amount if rate not available
-    const amount = item.amount || qty * rate;
+    const amount = item.amount;
 
     // Convert amounts from paise to rupees if needed (assuming amounts are in paise)
-    const displayRate = rate / 100;
-    const displayAmount = amount / 100;
+    const displayAmount = amount;
 
     // Check if we need a new page
     if (itemsProcessed >= maxItemsPerPage && index < invoice.items.length - 1) {
@@ -346,7 +337,6 @@ function generateItemsTableTemplate(
         .text('#', 60, currentY - 20, { width: 25 })
         .text('Item & Description', 90, currentY - 20, { width: 250 })
         .text('Qty', 350, currentY - 20, { width: 40, align: 'center' })
-        .text('Rate', 400, currentY - 20, { width: 60, align: 'center' })
         .text('Amount', 470, currentY - 20, { width: 70, align: 'center' });
     }
 
@@ -371,10 +361,6 @@ function generateItemsTableTemplate(
       .fontSize(10)
       .fillColor('#1f2937')
       .text(qty.toString(), 350, currentY, { width: 40, align: 'center' })
-      .text(`₹${displayRate.toFixed(2)}`, 400, currentY, {
-        width: 60,
-        align: 'center'
-      })
       .text(`₹${displayAmount.toFixed(2)}`, 470, currentY, {
         width: 70,
         align: 'center'
@@ -441,55 +427,10 @@ function generateTotalsAndTerms(
   doc.rect(totalsX, startY + 20, totalsWidth, 100).stroke('#cbd5e1');
 
   // Calculate totals (convert from paise to rupees)
-  const subtotal = invoice.subtotal
-    ? invoice.subtotal / 100
-    : invoice.total / 100;
-  const taxAmount = invoice.taxAmount ? invoice.taxAmount / 100 : 0;
-  const discountAmount = invoice.discountAmount
-    ? invoice.discountAmount / 100
-    : 0;
-  const total = invoice.total / 100;
+
+  const total = invoice.total;
 
   let totalsY = startY + 35;
-
-  // Subtotal
-  if (subtotal !== total || taxAmount > 0 || discountAmount > 0) {
-    doc
-      .fontSize(10)
-      .fillColor(darkGray)
-      .text('Subtotal:', totalsX + 15, totalsY)
-      .text(`₹${subtotal.toFixed(2)}`, totalsX + 120, totalsY, {
-        align: 'right',
-        width: 60
-      });
-    totalsY += 20;
-  }
-
-  // Tax
-  if (taxAmount > 0) {
-    doc
-      .fontSize(10)
-      .fillColor(darkGray)
-      .text('Tax:', totalsX + 15, totalsY)
-      .text(`₹${taxAmount.toFixed(2)}`, totalsX + 120, totalsY, {
-        align: 'right',
-        width: 60
-      });
-    totalsY += 20;
-  }
-
-  // Discount
-  if (discountAmount > 0) {
-    doc
-      .fontSize(10)
-      .fillColor(darkGray)
-      .text('Discount:', totalsX + 15, totalsY)
-      .text(`-₹${discountAmount.toFixed(2)}`, totalsX + 120, totalsY, {
-        align: 'right',
-        width: 60
-      });
-    totalsY += 20;
-  }
 
   // Total line
   doc.rect(totalsX + 15, totalsY - 5, totalsWidth - 30, 1).fill(darkGray);

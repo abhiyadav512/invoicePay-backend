@@ -12,7 +12,8 @@ const generateFormattedInvoiceNumber = require('../helper/generateFormattedInvoi
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
 exports.createInvoice = async (req, res, next) => {
-  const { clientName, clientEmail, currency, dueDate, items } = req.body;
+  const { clientName, clientEmail, currency, dueDate, items, quantity } =
+    req.body;
 
   if (!items || items.length === 0) {
     return sendResponse(
@@ -63,9 +64,10 @@ exports.createInvoice = async (req, res, next) => {
             connect: { id: userBusiness.id }
           },
           items: {
-            create: items.map(({ description, amount }) => ({
+            create: items.map(({ description, amount, quantity }) => ({
               description,
-              amount
+              amount,
+              quantity
             }))
           }
         },
@@ -189,7 +191,7 @@ exports.deleteInvoice = async (req, res, next) => {
   try {
     const invoice = await prisma.invoice.findFirst({
       where: {
-        id: Number(invoiceId),
+        id: invoiceId,
         userId: userId // Ensure user can only delete their own invoices
       }
     });
@@ -215,7 +217,7 @@ exports.deleteInvoice = async (req, res, next) => {
 
     // Delete invoice (items will be deleted due to cascade)
     await prisma.invoice.delete({
-      where: { id: Number(invoiceId) }
+      where: { id: invoiceId }
     });
 
     return sendResponse(res, 200, true, 'Invoice and payment link deleted');
@@ -232,7 +234,7 @@ exports.getInvoiceById = async (req, res, next) => {
   try {
     const invoice = await prisma.invoice.findFirst({
       where: {
-        id: Number(invoiceId),
+        id: invoiceId,
         userId: userId
       },
       include: {
@@ -242,7 +244,14 @@ exports.getInvoiceById = async (req, res, next) => {
             id: true,
             name: true,
             email: true,
-            phone: true
+            number: true,
+            address: true,
+            city: true,
+            owner: true,
+            country: true,
+            logo: true,
+            state: true,
+            postalCode: true
           }
         }
       }
@@ -290,12 +299,20 @@ exports.getInvoiceById = async (req, res, next) => {
         id: business.id,
         name: business.name,
         email: business.email,
-        phone: business.phone
+        phone: business.phone,
+        address: business.address,
+        city: business.city,
+        owner: business.owner,
+        country: business.country,
+        logo: business.logo,
+        state: business.state,
+        postalCode: business.postalCode
       },
-      items: items.map(({ id, description, amount }) => ({
+      items: items.map(({ id, description, amount, quantity }) => ({
         id,
         description,
-        amount
+        amount,
+        quantity
       }))
     };
 
@@ -334,7 +351,7 @@ exports.getInvoice = async (req, res, next) => {
         },
         skip,
         take: limit,
-        orderBy: { invoiceNumber: 'desc' } // Order by invoice number instead of createdAt
+        orderBy: { invoiceNumber: 'desc' }
       }),
       prisma.invoice.count({
         where: { userId }
@@ -394,10 +411,11 @@ exports.getInvoice = async (req, res, next) => {
           name: business.name,
           email: business.email
         },
-        items: items.map(({ id, description, amount }) => ({
+        items: items.map(({ id, description, amount, quantity }) => ({
           id,
           description,
-          amount
+          amount,
+          quantity
         }))
       };
     });

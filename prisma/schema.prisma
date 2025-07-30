@@ -77,7 +77,7 @@ model OtpRequest {
 }
 
 model Invoice {
-  id     Int    @id @default(autoincrement())
+  id     String @id @default(ulid())
   user   User   @relation(fields: [userId], references: [id])
   userId String
 
@@ -108,9 +108,10 @@ model Invoice {
 
 model InvoiceItem {
   id          Int     @id @default(autoincrement())
-  invoice     Invoice @relation(fields: [invoiceId], references: [id])
-  invoiceId   Int
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoiceId   String
   description String
+  quantity    Int     @default(1)
   amount      Int
 }
 

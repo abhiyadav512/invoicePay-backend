@@ -57,12 +57,10 @@ exports.getInvoiceSummary = async (req, res, next) => {
     const totalRevenue = paid.reduce((sum, inv) => sum + inv.total, 0);
 
     return sendResponse(res, 200, true, 'Summary fetched', {
-      data: {
-        totalRevenue,
-        totalInvoices,
-        paid: paid.length,
-        unpaid: unpaid.length
-      }
+      totalRevenue,
+      totalInvoices,
+      paid: paid.length,
+      unpaid: unpaid.length
     });
   } catch (error) {
     next(error);
@@ -94,7 +92,7 @@ exports.getRecentInvoices = async (req, res, next) => {
 };
 
 exports.getPaidOrUnpaid = async (req, res, next) => {
-  const userId = req.body.id;
+  const userId = req.query.id;
   const status = req.query.status?.toUpperCase();
   try {
     if (!['PAID', 'UNPAID', 'OVERDUE', 'FAILED'].includes(status)) {

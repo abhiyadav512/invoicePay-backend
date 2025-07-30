@@ -275,7 +275,7 @@ const getUserProfile = async (req, res, next) => {
   const user = req.user;
   try {
     const userData = {
-      id: user._id,
+      id: user.id,
       name: user.name,
       email: user.email,
       dob: user.dob,
@@ -315,7 +315,7 @@ const updateProfile = async (req, res, next) => {
       }
     });
 
-    return sendResponse(res, 201, true, 'Profile', updatedUser);
+    return sendResponse(res, 201, true, 'Profile updated.', updatedUser);
   } catch (error) {
     // console.error('Update profile error:', error);
     next(error);
