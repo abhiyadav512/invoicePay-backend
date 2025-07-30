@@ -4,7 +4,8 @@ const {
   getInvoiceSummary,
   getRecentInvoices,
   getPaidOrUnpaid
-} = require('../controllers/dashBoardController');
+} = require('../controllers/dashboardController');
+
 const router = express.Router();
 
 router.get('/summary/data', requireAuth, getInvoiceSummary);
