@@ -29,7 +29,7 @@ exports.handleStripeWebhook = async (req, res) => {
         await handleCheckoutSessionExpired(event.data.object);
         break;
       default:
-        break; // Ignore unhandled event types
+        break;
     }
     return res.status(200).json({ received: true });
   } catch (error) {
@@ -43,17 +43,26 @@ async function handleCheckoutSessionCompleted(session) {
     if (!invoiceId) return;
 
     const existingInvoice = await prisma.invoice.findUnique({
-      where: { id: parseInt(invoiceId) },
+      where: { id: invoiceId },
       select: { id: true, status: true }
     });
 
     if (!existingInvoice || existingInvoice.status === 'PAID') return;
 
+    const paymentIntent = await stripe.paymentIntents.retrieve(
+      session.payment_intent
+    );
+
     await prisma.invoice.update({
-      where: { id: parseInt(invoiceId) },
+      where: { id: invoiceId },
       data: {
         status: 'PAID',
-        updatedAt: new Date()
+        paidDate: new Date(),
+        stripeSessionId: session.id,
+        stripePaymentIntentId: session.payment_intent,
+        paymentMethod: paymentIntent.payment_method_types?.[0] || 'unknown',
+        updatedAt: new Date(),
+        metadata: session.metadata
       }
     });
   } catch (error) {
@@ -67,7 +76,7 @@ async function handleCheckoutSessionExpired(session) {
     if (!invoiceId) return;
 
     const invoice = await prisma.invoice.findUnique({
-      where: { id: parseInt(invoiceId) }
+      where: { id: invoiceId }
     });
 
     if (

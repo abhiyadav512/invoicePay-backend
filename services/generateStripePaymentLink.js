@@ -16,19 +16,20 @@ exports.generateStripePaymentLink = async ({
           price_data: {
             currency: currency?.toLowerCase() || 'inr',
             product_data: {
-              name: `Invoice Payment #${metadata.invoiceId}`,
-              description: `Payment for Invoice #${metadata.invoiceId}`
+              name: `Invoice ID-${metadata.invoiceId}`,
+              description: `Payment for Invoice -${metadata.invoiceNumber}`
             },
-            unit_amount: amount * 100 // amount in paise (for INR)
+            unit_amount: amount * 100
           },
           quantity: 1
         }
       ],
       customer_email: email,
       metadata: {
-        invoiceId: metadata.invoiceId.toString()
+        invoiceId: metadata.invoiceId.toString(),
+        item: metadata.item
       },
-      success_url: `${process.env.FRONTEND_URL || 'https://abhishek512.vercel.app/'}`,
+      success_url: `${process.env.FRONTEND_URL || 'https://abhishek512.vercel.app/payment-sucess'}`,
       cancel_url: `${process.env.FRONTEND_URL || 'https://your-domain.com'}/payment-cancelled`,
       expires_at: Math.floor(Date.now() / 1000) + 24 * 60 * 60 // 24 hours from now
     });

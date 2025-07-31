@@ -85,6 +85,12 @@ model Invoice {
   business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   businessId    String
 
+  paidDate              DateTime?
+  stripeSessionId       String?
+  stripePaymentIntentId String?
+  paymentMethod         String?
+  metadata              Json?
+
   clientName    String
   clientEmail   String
   currency      String        @default("INR")
@@ -94,6 +100,7 @@ model Invoice {
   paymentLink   String?
   paymentLinkId String?
   pdfUrl        String?
+  pdfPublicId   String?
   items         InvoiceItem[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt

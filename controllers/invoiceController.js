@@ -9,6 +9,10 @@ const Stripe = require('stripe');
 const { generateInvoicePdf } = require('../services/generateInvoicePdf');
 const getNextInvoiceNumber = require('../helper/getNextInvoiceNumber');
 const generateFormattedInvoiceNumber = require('../helper/generateFormattedInvoiceNumber');
+const { uploadPdfToCloudinary } = require('../services/uploadPdfToCloudinary');
+const {
+  deletePdfFromCloudinary
+} = require('../services/deletePdfFromCloudinary');
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
 exports.createInvoice = async (req, res, next) => {
@@ -91,15 +95,14 @@ exports.createInvoice = async (req, res, next) => {
         email: clientEmail,
         metadata: {
           invoiceId: invoice.id,
-          invoiceNumber: formattedInvoiceNumber
+          invoiceNumber: formattedInvoiceNumber,
+          items: JSON.stringify(items)
         },
         currency: invoice.currency
       });
-
       paymentLink = url;
       paymentLinkId = id;
     } catch (err) {
-      // If payment link generation fails, delete the created invoice
       await prisma.invoice.delete({ where: { id: invoice.id } });
       return sendResponse(
         res,
@@ -119,7 +122,6 @@ exports.createInvoice = async (req, res, next) => {
       }
     });
 
-    // Use business info as sender company (fallback to default if needed)
     const senderCompany = {
       name: updatedInvoice.business.name,
       address1: updatedInvoice.business.address || '',
@@ -130,14 +132,25 @@ exports.createInvoice = async (req, res, next) => {
       taxId: updatedInvoice.business.taxId
     };
 
-    // Generate PDF with business information
     const pdfBuffer = await generateInvoicePdf(
       { ...updatedInvoice, formattedInvoiceNumber },
       senderCompany
     );
 
+    const pdfUpload = await uploadPdfToCloudinary(
+      pdfBuffer,
+      `invoice_${updatedInvoice.id}_${formattedInvoiceNumber}`
+    );
+
+    await prisma.invoice.update({
+      where: { id: updatedInvoice.id },
+      data: {
+        pdfUrl: pdfUpload.url,
+        pdfPublicId: pdfUpload.pdfPublicId
+      }
+    });
+
     const senderUser = req.user;
-    // Send invoice email
     await sendInvoiceEmail(
       clientEmail,
       clientName,
@@ -153,6 +166,7 @@ exports.createInvoice = async (req, res, next) => {
       formattedInvoiceNumber,
       clientName,
       clientEmail,
+      pdfUrl: pdfUpload.url,
       currency: updatedInvoice.currency,
       total: updatedInvoice.total,
       status: updatedInvoice.status,
@@ -163,14 +177,16 @@ exports.createInvoice = async (req, res, next) => {
         name: updatedInvoice.business.name,
         email: updatedInvoice.business.email
       },
-      items: updatedInvoice.items.map(({ id, description, amount }) => ({
-        id,
-        description,
-        amount
-      }))
+      items: updatedInvoice.items.map(
+        ({ id, description, amount, quantity }) => ({
+          id,
+          description,
+          amount,
+          quantity
+        })
+      )
     };
 
-    // Respond with updated invoice (with paymentLink)
     sendResponse(
       res,
       201,
@@ -192,7 +208,7 @@ exports.deleteInvoice = async (req, res, next) => {
     const invoice = await prisma.invoice.findFirst({
       where: {
         id: invoiceId,
-        userId: userId // Ensure user can only delete their own invoices
+        userId: userId
       }
     });
 
@@ -204,7 +220,6 @@ exports.deleteInvoice = async (req, res, next) => {
       return sendResponse(res, 400, false, 'Cannot delete a paid invoice');
     }
 
-    // Deactivate Stripe payment link if exists
     if (invoice.paymentLinkId) {
       try {
         await stripe.paymentLinks.update(invoice.paymentLinkId, {
@@ -215,7 +230,13 @@ exports.deleteInvoice = async (req, res, next) => {
       }
     }
 
-    // Delete invoice (items will be deleted due to cascade)
+    if (invoice.pdfPublicId) {
+      try {
+        await deletePdfFromCloudinary(invoice.pdfPublicId);
+      } catch (cloudinaryError) {
+        // console.error('Cloudinary deletion error:', cloudinaryError);
+      }
+    }
     await prisma.invoice.delete({
       where: { id: invoiceId }
     });
@@ -261,7 +282,6 @@ exports.getInvoiceById = async (req, res, next) => {
       return sendResponse(res, 404, false, 'Invoice not found.');
     }
 
-    // Generate formatted invoice number for display
     const formattedInvoiceNumber = generateFormattedInvoiceNumber(
       userId,
       invoice.invoiceNumber,
@@ -280,7 +300,12 @@ exports.getInvoiceById = async (req, res, next) => {
       items,
       invoiceNumber,
       business,
-      paymentLink
+      paymentLink,
+      stripeSessionId,
+      paidDate,
+      stripePaymentIntentId,
+      paymentMethod,
+      metadata
     } = invoice;
 
     const sanitizedInvoice = {
@@ -295,6 +320,11 @@ exports.getInvoiceById = async (req, res, next) => {
       dueDate,
       pdfUrl,
       paymentLink,
+      stripeSessionId,
+      paidDate,
+      stripePaymentIntentId,
+      paymentMethod,
+      metadata,
       business: {
         id: business.id,
         name: business.name,
