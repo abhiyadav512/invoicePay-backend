@@ -305,7 +305,8 @@ exports.getInvoiceById = async (req, res, next) => {
       paidDate,
       stripePaymentIntentId,
       paymentMethod,
-      metadata
+      metadata,
+      createdAt
     } = invoice;
 
     const sanitizedInvoice = {
@@ -325,6 +326,7 @@ exports.getInvoiceById = async (req, res, next) => {
       stripePaymentIntentId,
       paymentMethod,
       metadata,
+      createdAt,
       business: {
         id: business.id,
         name: business.name,
