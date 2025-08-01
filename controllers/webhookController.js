@@ -54,21 +54,20 @@ async function handleCheckoutSessionCompleted(session) {
     const paymentIntent = await stripe.paymentIntents.retrieve(
       session.payment_intent
     );
-
-    await prisma.invoice.update({
+    const temp = await prisma.invoice.update({
       where: { id: invoiceId },
       data: {
         status: 'PAID',
+        updatedAt: new Date(),
         paidDate: new Date(),
         stripeSessionId: session.id,
         stripePaymentIntentId: session.payment_intent,
         paymentMethod: paymentIntent.payment_method_types?.[0] || 'unknown',
-        updatedAt: new Date(),
         metadata: session.metadata
       }
     });
   } catch (error) {
-    // console.error(' Error updating invoice:', error);
+    // Log to monitoring system if needed
   }
 }
 
