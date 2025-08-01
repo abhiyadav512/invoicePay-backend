@@ -4,4 +4,3 @@ node_modules/
 
 # Prisma generated files
 /generated/prisma
-prisma/migrations/

@@ -30,7 +30,7 @@ exports.generateStripePaymentLink = async ({
         item: metadata.item
       },
       success_url: `${process.env.FRONTEND_URL || 'https://abhishek512.vercel.app/payment-sucess'}`,
-      cancel_url: `${process.env.FRONTEND_URL || 'https://your-domain.com'}/payment-cancelled`,
+      cancel_url: `${process.env.FRONTEND_URL || 'https://abhishek512.vercel.app'}`,
       expires_at: Math.floor(Date.now() / 1000) + 24 * 60 * 60 // 24 hours from now
     });
 

@@ -40,7 +40,9 @@ exports.handleStripeWebhook = async (req, res) => {
 async function handleCheckoutSessionCompleted(session) {
   try {
     const invoiceId = session.metadata?.invoiceId;
-    if (!invoiceId) return;
+    if (!invoiceId) {
+      return;
+    }
 
     const existingInvoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
@@ -66,7 +68,7 @@ async function handleCheckoutSessionCompleted(session) {
       }
     });
   } catch (error) {
-    // Log to monitoring system if needed
+    // console.error(' Error updating invoice:', error);
   }
 }
 
@@ -85,7 +87,7 @@ async function handleCheckoutSessionExpired(session) {
       invoice.status === 'UNPAID'
     ) {
       await prisma.invoice.update({
-        where: { id: parseInt(invoiceId) },
+        where: { id: invoiceId },
         data: {
           status: 'OVERDUE',
           updatedAt: new Date()
