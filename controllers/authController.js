@@ -197,7 +197,7 @@ const forgotPassword = async (req, res, next) => {
     });
 
     // todo : replace with production url
-    const resetLink = `https://yourdomain.com/reset-password/${rawToken}`;
+    const resetLink = `https://invoicepay.vercel.app/reset-password/${rawToken}`;
 
     await sendEmail({
       to: email,
